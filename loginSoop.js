@@ -8,7 +8,7 @@ async function loginSoop(id, pw) {
   const client = wrapper(axios.create({ jar }));
 
   const res = await client.post(
-    "https://login.afreecatv.com/app/LoginAction.php",
+    "https://login.sooplive.co.kr/afreeca/login.php",
     new URLSearchParams({
       m_id: id,
       m_pwd: pw,
@@ -18,14 +18,14 @@ async function loginSoop(id, pw) {
     {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Referer: "https://www.afreecatv.com/",
+        Referer: "https://play.sooplive.co.kr/",
         "User-Agent": "Mozilla/5.0",
       },
     }
   );
 
   if (!res.headers["set-cookie"]) {
-    throw new Error("로그인 실패 (쿠키 없음)");
+    throw new Error("❌ 로그인 실패 (쿠키 없음)");
   }
 
   console.log("✅ SOOP 로그인 성공");
