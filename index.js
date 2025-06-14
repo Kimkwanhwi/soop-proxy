@@ -47,7 +47,7 @@ async function fetchBJInfo(bjid) {
   }
 
   return {
-    chat_url: `ws://${data.CHANNEL.CHDOMAIN}:${data.CHANNEL.CHPT}/Websocket/${bjid}`,
+    chat_url: `wss://${data.CHANNEL.CHDOMAIN}:${parseInt(data.CHANNEL.CHPT) + 1}/Websocket/${bjid}`,
     tk: data.CHANNEL.TK || "",
     ftk: data.CHANNEL.FTK,
     chatno: data.CHANNEL.CHATNO,
@@ -61,7 +61,7 @@ function parseSVC(buffer) {
 
 async function connectToChat(bjid) {
   const info = await fetchBJInfo(bjid);
-  ws = new WebSocket(info.chat_url, []);
+  ws = new WebSocket(info.chat_url, 'chat'); // subprotocol 명시
 
   ws.on("open", () => {
     console.log("✅ WebSocket 연결됨");
