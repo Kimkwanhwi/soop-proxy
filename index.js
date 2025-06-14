@@ -1,3 +1,4 @@
+// Render용 Node.js 프록시 서버 (전체 채팅 수집 버전)
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -7,6 +8,7 @@ const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 
+// GET /soop-chat?bjid=아이디
 app.get('/soop-chat', async (req, res) => {
   const bjid = req.query.bjid;
   if (!bjid) return res.status(400).json({ error: 'bjid 파라미터가 필요합니다.' });
@@ -32,11 +34,7 @@ app.get('/soop-chat', async (req, res) => {
     });
 
     const chats = chatRes.data?.data || [];
-    const filtered = chats.filter(chat =>
-      chat.msg?.includes('별풍선') || chat.item_name?.includes('별풍선') || chat.msg_type === 'item'
-    );
-
-    res.json(filtered);
+    res.json(chats); // 전체 채팅 반환
   } catch (err) {
     console.error('프록시 에러:', err.message);
     res.status(500).json({ error: '프록시 서버 오류 발생' });
