@@ -4,7 +4,7 @@
   "description": "SOOP (AfreecaTV) 채팅 수집용 Node.js 프록시 서버",
   "main": "render-server.js",
   "scripts": {
-    "start": "node render-server.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
