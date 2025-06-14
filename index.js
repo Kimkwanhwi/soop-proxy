@@ -1,17 +1,25 @@
-// Render용 Node.js 프록시 서버 (전체 채팅 수집 버전)
+// Render용 Node.js WebSocket → HTTP 중계 프록시 서버
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
+const WebSocket = require('ws');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 
-// GET /soop-chat?bjid=아이디
-app.get('/soop-chat', async (req, res) => {
-  const bjid = req.query.bjid;
-  if (!bjid) return res.status(400).json({ error: 'bjid 파라미터가 필요합니다.' });
+let chatBuffer = [];
+const MAX_BUFFER = 100;
+let ws = null;
+
+// WebSocket 연결 함수
+type ConnectState = 'disconnected' | 'connecting' | 'connected';
+let state = 'disconnected';
+
+async function connectToSoop(bjid) {
+  if (state === 'connecting' || state === 'connected') return;
+  state = 'connecting';
 
   try {
     const infoRes = await axios.post(
@@ -22,33 +30,62 @@ app.get('/soop-chat', async (req, res) => {
       }
     );
 
-const bno = infoRes.data?.CHANNEL?.BNO;
+    const chdomain = infoRes.data?.CHANNEL?.CHDOMAIN;
+    const chpt = infoRes.data?.CHANNEL?.CHPT;
+    if (!chdomain || !chpt) {
+      console.error("채널 정보가 없습니다");
+      state = 'disconnected';
+      return;
+    }
 
-    if (!bno) return res.status(404).json({ error: '방송이 꺼져 있거나 BNO를 찾을 수 없습니다.' });
+    const wsUrl = `wss://${chdomain}:${chpt}/Websocket/${bjid}`;
+    console.log("WebSocket 연결 중:", wsUrl);
+    ws = new WebSocket(wsUrl);
 
-    const chatRes = await axios.get('https://live.sooplive.co.kr/api/chat/getChatList', {
-      params: {
-        bno,
-        last_chat_id: 0,
-        limit: 50,
-      },
+    ws.on('open', () => {
+      console.log("WebSocket 연결됨");
+      state = 'connected';
     });
 
-    const chats = chatRes.data?.data || [];
-    console.log("BNO:", bno);
-    console.log("요청 주소:", 'https://live.sooplive.co.kr/api/chat/getChatList');
-    console.log("요청 파라미터:", {
-      bno,
-      last_chat_id: 0,
-      limit: 50,
+    ws.on('message', (data) => {
+      try {
+        const parsed = JSON.parse(data.toString());
+        if (parsed.msg || parsed.item_name) {
+          chatBuffer.push(parsed);
+          if (chatBuffer.length > MAX_BUFFER) {
+            chatBuffer.shift();
+          }
+          console.log("[수신]", parsed.user_nick, ":", parsed.msg || parsed.item_name);
+        }
+      } catch (e) {
+        console.error("메시지 파싱 실패:", e);
+      }
     });
-    console.log("채팅 응답 전체:", chatRes.data);
-    res.json(chats); // 전체 채팅 반환
-  } catch (err) {
-    console.error('프록시 에러:', err.message);
-    res.status(500).json({ error: '프록시 서버 오류 발생' });
+
+    ws.on('close', () => {
+      console.log("WebSocket 연결 종료");
+      state = 'disconnected';
+      setTimeout(() => connectToSoop(bjid), 3000);
+    });
+
+    ws.on('error', (err) => {
+      console.error("WebSocket 오류:", err);
+      ws.close();
+    });
+  } catch (e) {
+    console.error("SOOP 연결 실패:", e);
+    state = 'disconnected';
   }
+}
+
+// HTTP GET → 버퍼된 채팅 반환
+app.get('/soop-buffer', (req, res) => {
+  res.json(chatBuffer);
 });
+
+// 시작 시 bjid 연결
+const bjid = process.env.BJID || 'phonics1';
+connectToSoop(bjid);
 
 app.listen(PORT, () => {
   console.log(`SOOP 프록시 서버 실행 중: http://localhost:${PORT}`);
