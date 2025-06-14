@@ -1,10 +1,10 @@
-// render-server.js – 로그인 기반 SOOP 채팅 수집 서버 (HTML 입력 + 로그아웃)
+// index.js – 로그인 기반 SOOP 채팅 수집 서버 (HTML 입력 + 로그아웃)
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const express = require('express');
 const WebSocket = require('ws');
-const loginAfreeca = require('./loginAfreeca');
+const loginSoop = require('./loginSoop');
 const axios = require('axios');
 
 const app = express();
