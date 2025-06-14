@@ -1,7 +1,9 @@
 // loginSoop.js
 const axios = require("axios").default;
-const { wrapper } = require("axios-cookiejar-support");
 const { CookieJar } = require("tough-cookie");
+const { wrapper } = require("axios-cookiejar-support");
+
+// wrapper는 함수로 직접 실행해야 함
 
 async function loginSoop(id, pw) {
   const jar = new CookieJar();
