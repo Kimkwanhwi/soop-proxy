@@ -72,7 +72,7 @@ async function fetchBJInfo(bjid, client) {
 app.get("/login-form", (req, res) => {
   res.send(`
     <form method="POST" action="/login-and-connect">
-      <input name="id" placeholder="아프리카 ID" required />
+      <input name="id" placeholder="SOOP ID" required />
       <input name="pw" placeholder="비밀번호" type="password" required />
       <input name="bjid" placeholder="BJ ID" required />
       <button type="submit">채팅 수집 시작</button>
