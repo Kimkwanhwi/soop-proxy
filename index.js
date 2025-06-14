@@ -38,7 +38,7 @@ async function connectToSoop(bjid) {
       return;
     }
 
-    const wsUrl = `wss://${chdomain}:${chpt}/Websocket/${bjid}`;
+    const wsUrl = `ws://${chdomain}:${chpt}/Websocket/${bjid}`;
     console.log("WebSocket 연결 중:", wsUrl);
     ws = new WebSocket(wsUrl);
 
