@@ -84,7 +84,7 @@ app.get('/soop-buffer', (req, res) => {
 });
 
 // 시작 시 bjid 연결
-const bjid = process.env.BJID || 'phonics1';
+const bjid = process.env.BJID || 'madaomm';
 connectToSoop(bjid);
 
 app.listen(PORT, () => {
