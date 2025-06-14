@@ -1,13 +1,11 @@
 // loginSoop.js
 const axios = require("axios").default;
 const { CookieJar } = require("tough-cookie");
-const axiosCookieJarSupport = require("axios-cookiejar-support"); // 전체 모듈 불러오기
+const { wrapper } = require("axios-cookiejar-support");
 
 async function loginSoop(id, pw) {
   const jar = new CookieJar();
-  const client = axios.create({ jar });
-
-  axiosCookieJarSupport.wrapper(client); // wrapper는 여기서 함수 실행됨
+  const client = wrapper(axios.create({ jar }));
 
   const res = await client.post(
     "https://login.sooplive.co.kr/afreeca/login.php",
