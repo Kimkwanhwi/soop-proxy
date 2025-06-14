@@ -50,8 +50,9 @@ async function connectToSoop(bjid) {
     ws.on('message', (data) => {
       try {
         const parsed = JSON.parse(data.toString());
-        if (parsed.msg || parsed.item_name) {
+        //if (parsed.msg || parsed.item_name) {
           chatBuffer.push(parsed);
+          console.log("[수신]", parsed);
           if (chatBuffer.length > MAX_BUFFER) {
             chatBuffer.shift();
           }
