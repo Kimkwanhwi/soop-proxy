@@ -78,6 +78,7 @@ async function connectToChat(bjid) {
   ws.on("message", (data) => {
     const svc = parseSVC(data);
     const body = data.subarray(14).toString("utf-8").split("\f");
+    console.log("전체 body:", body); // 이거 추가해서 구조 확인
     if (svc === SVC_CHATMESG) {
       const chat = {
         user_id: body[2],
