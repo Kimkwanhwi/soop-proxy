@@ -1,4 +1,4 @@
-// index.js – 로그인 기반 SOOP 채팅 수집 서버 (HTML 입력 + 로그아웃)
+// index.js – SOOP 채팅 수집 서버 (로그인 기반)
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -71,12 +71,26 @@ async function fetchBJInfo(bjid, client) {
 
 app.get("/login-form", (req, res) => {
   res.send(`
-    <form method="POST" action="/login-and-connect">
-      <input name="id" placeholder="SOOP ID" required />
-      <input name="pw" placeholder="비밀번호" type="password" required />
-      <input name="bjid" placeholder="BJ ID" required />
-      <button type="submit">채팅 수집 시작</button>
-    </form>
+    <html>
+      <head>
+        <title>SOOP 채팅 로그인</title>
+        <style>
+          body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f7f7f7; }
+          input, button { display: block; margin: 10px auto; padding: 10px; width: 250px; font-size: 16px; }
+          button { background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 6px; }
+          button:hover { background-color: #0056b3; }
+        </style>
+      </head>
+      <body>
+        <h2>SOOP 채팅 수집 로그인</h2>
+        <form method="POST" action="/login-and-connect">
+          <input name="id" placeholder="SOOP ID" required />
+          <input name="pw" placeholder="비밀번호" type="password" required />
+          <input name="bjid" placeholder="BJ ID" required />
+          <button type="submit">채팅 수집 시작</button>
+        </form>
+      </body>
+    </html>
   `);
 });
 
@@ -85,7 +99,7 @@ app.post('/login-and-connect', async (req, res) => {
   if (!id || !pw || !bjid) return res.send('모든 항목을 입력해주세요.');
 
   try {
-    const { client, jar } = await loginAfreeca(id, pw);
+    const { client, jar } = await loginSoop(id, pw);
     const info = await fetchBJInfo(bjid, client);
     const cookies = await jar.getCookieString(info.chat_url);
 
