@@ -1,93 +1,119 @@
-// Render용 Node.js WebSocket → HTTP 중계 프록시 서버
+// Render용 SOOP WebSocket 채팅 수집 서버
+
 const express = require('express');
-const cors = require('cors');
-const WebSocket = require('ws');
 const axios = require('axios');
+const WebSocket = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(cors());
-
-let chatBuffer = [];
-const MAX_BUFFER = 100;
+let chatBuffer = []; // 채팅 저장 버퍼
 let ws = null;
 
-// WebSocket 연결 함수
-// let state: ConnectState = 'disconnected';
-let state = 'disconnected';
+function createPacket(svc, dataList) {
+  const ESC = String.fromCharCode(0x1b);
+  const TAB = "\t";
+  const body = buildBody(dataList);
+  const header = [
+    ESC,
+    TAB,
+    svc.toString().padStart(4, "0"),
+    body.length.toString().padStart(6, "0"),
+    "00",
+  ].join("");
 
-async function connectToSoop(bjid) {
-  if (state === 'connecting' || state === 'connected') return;
-  state = 'connecting';
-
-  try {
-    const infoRes = await axios.post(
-      `https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid=${bjid}`,
-      `bid=${bjid}&bno=null&type=live&pwd=&player_type=html5&stream_type=common&quality=HD&mode=landing&from_api=0&is_revive=false`,
-      {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      }
-    );
-
-    const chdomain = infoRes.data?.CHANNEL?.CHDOMAIN;
-    const chpt = infoRes.data?.CHANNEL?.CHPT;
-    if (!chdomain || !chpt) {
-      console.error("채널 정보가 없습니다");
-      state = 'disconnected';
-      return;
-    }
-
-    const wsUrl = `ws://${chdomain}:${chpt}/Websocket/${bjid}`;
-    console.log("WebSocket 연결 중:", wsUrl);
-    ws = new WebSocket(wsUrl);
-
-    ws.on('open', () => {
-      console.log("WebSocket 연결됨");
-      state = 'connected';
-    });
-
-    ws.on('message', (data) => {
-      try {
-        const parsed = JSON.parse(data.toString());
-        //if (parsed.msg || parsed.item_name) {
-          chatBuffer.push(parsed);
-          console.log("[수신]", parsed);
-          if (chatBuffer.length > MAX_BUFFER) {
-            chatBuffer.shift();
-          }
-          //console.log("[수신]", parsed.user_nick, ":", parsed.msg || parsed.item_name);
-        //}
-      } catch (e) {
-        console.error("메시지 파싱 실패:", e);
-      }
-    });
-
-    ws.on('close', () => {
-      console.log("WebSocket 연결 종료");
-      state = 'disconnected';
-      setTimeout(() => connectToSoop(bjid), 3000);
-    });
-
-    ws.on('error', (err) => {
-      console.error("WebSocket 오류:", err);
-      ws.close();
-    });
-  } catch (e) {
-    console.error("SOOP 연결 실패:", e);
-    state = 'disconnected';
-  }
+  return Buffer.concat([
+    Buffer.from(header, "utf-8"),
+    Buffer.from(body, "utf-8"),
+  ]);
 }
 
-// HTTP GET → 버퍼된 채팅 반환
-app.get('/soop-buffer', (req, res) => {
+function buildBody(dataList) {
+  return dataList.map(item => "\f" + item).join("") + "\f";
+}
+
+const SVC_LOGIN = 7100;
+const SVC_JOINCH = 7101;
+const SVC_KEEPALIVE = 7103;
+const SVC_CHATMESG = 7160;
+
+async function fetchBJInfo(bjid) {
+  const url = `https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid=${bjid}`;
+  const res = await axios.post(url, `bid=${bjid}&type=live&player_type=html5`);
+  const data = res.data;
+
+  if (data.CHANNEL.RESULT !== 1) {
+    throw new Error("방송 중이 아닙니다.");
+  }
+
+  return {
+    chat_url: `ws://${data.CHANNEL.CHDOMAIN}:${data.CHANNEL.CHPT}/Websocket/${bjid}`,
+    tk: data.CHANNEL.TK || "",
+    ftk: data.CHANNEL.FTK,
+    chatno: data.CHANNEL.CHATNO,
+    bjid,
+  };
+}
+
+function parseSVC(buffer) {
+  return parseInt(buffer.subarray(2, 6).toString("utf-8"));
+}
+
+async function connectToChat(bjid) {
+  const info = await fetchBJInfo(bjid);
+  ws = new WebSocket(info.chat_url, []);
+
+  ws.on("open", () => {
+    console.log("✅ WebSocket 연결됨");
+    const loginPacket = createPacket(SVC_LOGIN, [info.tk, "", "512"]);
+    ws.send(loginPacket);
+
+    setInterval(() => {
+      const keepAlive = createPacket(SVC_KEEPALIVE, []);
+      ws.send(keepAlive);
+    }, 20000);
+  });
+
+  ws.on("message", (data) => {
+    const svc = parseSVC(data);
+    const body = data.subarray(14).toString("utf-8").split("\f");
+    if (svc === SVC_CHATMESG) {
+      const chat = {
+        user_id: body[2],
+        user_nick: body[3],
+        msg: body[11],
+        raw: body,
+      };
+      chatBuffer.push(chat);
+      if (chatBuffer.length > 200) chatBuffer.shift();
+      console.log("[수신]", chat);
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("🔌 WebSocket 연결 종료됨");
+  });
+
+  ws.on("error", (err) => {
+    console.error("❌ WebSocket 오류:", err);
+  });
+}
+
+app.get("/soop-chat", async (req, res) => {
+  const bjid = req.query.bjid;
+  if (!bjid) return res.status(400).send("bjid 파라미터가 필요합니다.");
+  try {
+    await connectToChat(bjid);
+    res.send("✅ WebSocket 연결 시도 완료");
+  } catch (e) {
+    res.status(500).send("❌ 연결 실패: " + e.message);
+  }
+});
+
+app.get("/soop-buffer", (req, res) => {
   res.json(chatBuffer);
 });
 
-// 시작 시 bjid 연결
-const bjid = process.env.BJID || 'madaomm';
-connectToSoop(bjid);
-
 app.listen(PORT, () => {
-  console.log(`SOOP 프록시 서버 실행 중: http://localhost:${PORT}`);
+  console.log(`🚀 SOOP 프록시 서버 실행 중: http://localhost:${PORT}`);
 });
