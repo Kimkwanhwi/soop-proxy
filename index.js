@@ -1,4 +1,5 @@
 // Render용 SOOP WebSocket 채팅 수집 서버
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // << 인증서 검증 무시
 
 const express = require('express');
 const axios = require('axios');
