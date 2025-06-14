@@ -56,8 +56,8 @@ async function connectToSoop(bjid) {
           if (chatBuffer.length > MAX_BUFFER) {
             chatBuffer.shift();
           }
-          console.log("[수신]", parsed.user_nick, ":", parsed.msg || parsed.item_name);
-        }
+          //console.log("[수신]", parsed.user_nick, ":", parsed.msg || parsed.item_name);
+        //}
       } catch (e) {
         console.error("메시지 파싱 실패:", e);
       }
