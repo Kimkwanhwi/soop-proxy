@@ -23,14 +23,7 @@ app.get('/soop-chat', async (req, res) => {
     );
 
 const bno = infoRes.data?.CHANNEL?.BNO;
-console.log("BNO:", bno);
-console.log("요청 주소:", 'https://live.sooplive.co.kr/api/chat/getChatList');
-console.log("요청 파라미터:", {
-  bno,
-  last_chat_id: 0,
-  limit: 50,
-});
-console.log("채팅 응답 전체:", chatRes.data);
+
     if (!bno) return res.status(404).json({ error: '방송이 꺼져 있거나 BNO를 찾을 수 없습니다.' });
 
     const chatRes = await axios.get('https://live.sooplive.co.kr/api/chat/getChatList', {
@@ -42,6 +35,14 @@ console.log("채팅 응답 전체:", chatRes.data);
     });
 
     const chats = chatRes.data?.data || [];
+    console.log("BNO:", bno);
+    console.log("요청 주소:", 'https://live.sooplive.co.kr/api/chat/getChatList');
+    console.log("요청 파라미터:", {
+      bno,
+      last_chat_id: 0,
+      limit: 50,
+    });
+    console.log("채팅 응답 전체:", chatRes.data);
     res.json(chats); // 전체 채팅 반환
   } catch (err) {
     console.error('프록시 에러:', err.message);
