@@ -14,7 +14,7 @@ const MAX_BUFFER = 100;
 let ws = null;
 
 // WebSocket 연결 함수
-type ConnectState = 'disconnected' | 'connecting' | 'connected';
+// let state: ConnectState = 'disconnected';
 let state = 'disconnected';
 
 async function connectToSoop(bjid) {
