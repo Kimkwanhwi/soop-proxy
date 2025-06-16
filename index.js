@@ -82,3 +82,6 @@ const fetchBjInfo = async (client, bjid) => {
 app.listen(10000, () => {
   console.log("🚀 SOOP Proxy server running on http://localhost:10000");
 });
+
+const path = require("path");
+app.use(express.static(path.join(__dirname, "public"))); // public 폴더에서 HTML 제공
