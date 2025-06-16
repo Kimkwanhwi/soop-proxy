@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>SOOP 채팅 수집기</title>
+</head>
+<body>
+  <h2>SOOP 로그인</h2>
+  <input type="text" id="id" placeholder="SOOP ID" />
+  <input type="password" id="pw" placeholder="Password" />
+  <button onclick="login()">로그인</button>
+  <br /><br />
+  
+  <input type="text" id="bjid" placeholder="BJ 아이디 (ex. phonics1)" />
+  <button onclick="startChat()">채팅 수집 시작</button>
+  <br /><br />
+
+  <button onclick="showBuffer()">채팅 로그 보기</button>
+  <pre id="output"></pre>
+
+  <br /><button onclick="logout()">로그아웃</button>
+
+  <script>
+    async function login() {
+      const id = document.getElementById('id').value;
+      const pw = document.getElementById('pw').value;
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, pw })
+      });
+      const text = await res.text();
+      alert(text);
+    }
+
+    async function startChat() {
+      const bjid = document.getElementById('bjid').value;
+      const res = await fetch(`/soop-chat?bjid=${encodeURIComponent(bjid)}`);
+      const text = await res.text();
+      alert(text);
+    }
+
+    async function showBuffer() {
+      const res = await fetch('/soop-buffer');
+      const json = await res.json();
+      document.getElementById('output').textContent = JSON.stringify(json, null, 2);
+    }
+
+    async function logout() {
+      const res = await fetch('/logout');
+      const text = await res.text();
+      alert(text);
+    }
+  </script>
+</body>
+</html>
