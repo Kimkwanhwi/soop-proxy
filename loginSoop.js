@@ -13,7 +13,7 @@ async function loginSoop(id, pw) {
     withCredentials: true,
   });
 
-  const response = await client.post(
+  const res = await client.post(
     "https://login.sooplive.co.kr/app/LoginAction.php",
     new URLSearchParams({
       szUid: id,
