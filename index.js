@@ -4,11 +4,12 @@ const bodyParser = require("body-parser");
 const loginSoop = require("./loginSoop");
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 
-// 로그인 요청 API
+let currentSession = null; // 현재 로그인 세션 (client, jar, cookieHeader 포함)
+
 app.post("/login", async (req, res) => {
   const { id, pw } = req.body;
 
@@ -17,19 +18,19 @@ app.post("/login", async (req, res) => {
   }
 
   try {
-    const { client, jar, cookies } = await loginSoop(id, pw);
+    const session = await loginSoop(id, pw);
+    currentSession = session;
 
-    // 필요시 쿠키 내용을 로깅하거나 다른 모듈로 넘길 수 있음
-    console.log("로그인 쿠키:", cookies);
-
-    res.json({ success: true, message: "✅ 로그인 성공", cookies });
+    return res.json({ success: true, message: "✅ 로그인 성공" });
   } catch (error) {
-    console.error("❌ 로그인 에러:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(401).json({ success: false, error: error.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🔓 SOOP 로그인 서버 실행 중: http://localhost:${PORT}`);
+app.get("/", (req, res) => {
+  res.send("SOOP 로그인 서버가 실행 중입니다.");
 });
 
+app.listen(PORT, () => {
+  console.log(`🚀 서버 실행 중: http://localhost:${PORT}`);
+});
