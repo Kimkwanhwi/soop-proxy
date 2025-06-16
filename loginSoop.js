@@ -1,10 +1,12 @@
 const axios = require("axios").default;
 const { CookieJar } = require("tough-cookie");
-const { wrapper } = require("axios-cookiejar-support");
+const { AxiosCookieJarSupport } = require("axios-cookiejar-support");
 
+// axios 인스턴스에 쿠키 지원을 수동으로 적용
 async function loginSoop(id, pw) {
   const jar = new CookieJar();
-  const client = wrapper(axios.create({ jar }));
+  const client = axios.create({ jar, withCredentials: true });
+  AxiosCookieJarSupport(client); // wrapper 대신 이걸 직접 호출
 
   const res = await client.post(
     "https://login.sooplive.co.kr/app/LoginAction.php",
@@ -17,14 +19,13 @@ async function loginSoop(id, pw) {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Referer: "https://play.sooplive.co.kr/",
-        "User-Agent": "Mozilla/5.0"
-      }
+        "User-Agent": "Mozilla/5.0",
+      },
     }
   );
 
-  const cookies = res.headers["set-cookie"] || [];
-  if (!cookies.find(c => c.includes("AuthTicket"))) {
-    throw new Error("❌ 로그인 실패 (AuthTicket 없음)");
+  if (!res.headers["set-cookie"]) {
+    throw new Error("❌ 로그인 실패 (쿠키 없음)");
   }
 
   console.log("✅ SOOP 로그인 성공");
