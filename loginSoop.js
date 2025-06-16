@@ -7,43 +7,44 @@ async function loginSoop(id, pw) {
   if (!id || !pw) {
     throw new Error("❌ ID 또는 PW가 비어 있습니다.");
   }
-
   const jar = new CookieJar();
-
   const client = axios.create({
     jar,
     withCredentials: true,
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": "Mozilla/5.0",
-    },
   });
 
-  const loginUrl = "https://login.sooplive.co.kr/app/LoginAction.php";
-
   const response = await client.post(
-    loginUrl,
+    "https://login.sooplive.co.kr/app/LoginAction.php",
     new URLSearchParams({
       szUid: id,
       szPassword: pw,
       szWork: "login",
-    }).toString()
+    }),
+    {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Referer: "https://play.sooplive.co.kr/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      },
+    }
   );
 
-  const cookies = await jar.getCookies(loginUrl);
-  const auth = cookies.find(c => c.key === "AuthTicket");
-
-  if (!auth) {
+  const cookies = jar.getCookiesSync("https://sooplive.co.kr");
+  const cookieMap = {};
+  for (const cookie of cookies) {
+    cookieMap[cookie.key] = cookie.value;
+  }
+  console.log("🔍 쿠키 확인:", cookies);
+  if (!cookieMap["AuthTicket"]) {
     throw new Error("❌ 로그인 실패 (AuthTicket 없음)");
   }
 
-  const cookieHeader = cookies.map(c => `${c.key}=${c.value}`).join("; ");
-
   console.log("✅ 로그인 성공");
-  console.log("🍪 쿠키:", cookieHeader);
-
-  return { client, jar, cookieHeader };
+  return {
+    client,
+    jar,
+    cookieHeader: cookies.map(c => `${c.key}=${c.value}`).join("; "),
+  };
 }
 
 module.exports = loginSoop;
-
