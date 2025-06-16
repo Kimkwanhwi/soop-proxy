@@ -28,6 +28,7 @@ async function loginSoop(id, pw) {
       },
     }
   );
+  console.log("📥 응답 본문:", res.data);
 
   const cookies = jar.getCookiesSync("https://sooplive.co.kr");
   const cookieMap = {};
