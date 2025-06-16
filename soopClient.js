@@ -1,159 +1,92 @@
-// soopClient.js
-const axios = require("axios").default;
-const tough = require("tough-cookie");
 const WebSocket = require("ws");
-const { URLSearchParams } = require("url");
-const EventEmitter = require("events");
+const axios = require("axios");
+const orjson = require("orjson-lite"); // orjson-like for decoding, use JSON if unavailable
 
-const CHAT_URL = (domain, port, bjid) => `wss://${domain}:${port}/Websocket/${bjid}`;
-const SERVICE_CODE = {
-  SVC_LOGIN: 1000,
-  SVC_JOINCH: 1001,
-  SVC_CHATMESG: 1002,
-  SVC_KEEPALIVE: 1003,
-};
+const CHAT_URL_TEMPLATE = "wss://chat-{chdomain}.sooplive.co.kr:{port}/Websocket/{bjid}";
+
+function createChatURL(info) {
+  const port = parseInt(info.CHPT) + 1; // +1 for secure port
+  return CHAT_URL_TEMPLATE
+    .replace("{chdomain}", info.CHDOMAIN)
+    .replace("{port}", port)
+    .replace("{bjid}", info.BJID);
+}
+
+async function fetchBJInfo(client, bjid) {
+  const form = new URLSearchParams();
+  form.append("bid", bjid);
+  form.append("type", "live");
+  form.append("player_type", "html5");
+
+  const res = await client.post(
+    `https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid=${bjid}`,
+    form
+  );
+
+  const data = orjson.loads(res.data); // or JSON.parse if needed
+  if (!data.CHANNEL || data.CHANNEL.RESULT !== 1) {
+    throw new Error("방송이 시작되지 않았거나 존재하지 않습니다.");
+  }
+  return data.CHANNEL;
+}
+
+function connectToChat(chatUrl, info, onChatMessage) {
+  const ws = new WebSocket(chatUrl);
+
+  ws.on("open", () => {
+    console.log("✅ WebSocket 연결됨");
+
+    const loginPacket = createPacket(0x0fa0, [
+      info.TK || "",
+      "",
+      "1" // guest flag
+    ]);
+    ws.send(loginPacket);
+  });
+
+  ws.on("message", (data) => {
+    const msg = parsePacket(data);
+    if (msg && msg.svc === 0x0fa1 && info.CHATNO && info.FTK) {
+      const joinPacket = createPacket(0x0fa1, [
+        info.CHATNO,
+        info.FTK,
+        "0",
+        "",
+        ""
+      ]);
+      ws.send(joinPacket);
+    }
+
+    if (msg && msg.svc === 0x0fa2 && msg.body.length > 10) {
+      const [ , nick, , , , , , , , , message ] = msg.body;
+      onChatMessage({ nickname: nick, message });
+    }
+  });
+
+  ws.on("close", () => console.log("🔌 WebSocket 연결 종료됨"));
+  ws.on("error", (err) => console.error("❌ WebSocket 오류:", err));
+}
 
 function createPacket(svc, data) {
-  const buildPacket = data.map((d) => "\f" + d).join("") + "\f";
-  const body = Buffer.from(buildPacket, "utf-8");
+  const body = Buffer.from(["\f" + data.join("\f") + "\f"].join(""), "utf-8");
   const header = Buffer.from(
-    `\u001b\t${svc.toString().padStart(4, "0")}${body.length.toString().padStart(6, "0")}00`,
+    "\u001b\t" + svc.toString().padStart(4, "0") + body.length.toString().padStart(6, "0") + "00",
     "utf-8"
   );
   return Buffer.concat([header, body]);
 }
 
-class SoopChatClient extends EventEmitter {
-  constructor(id, pw, bjid) {
-    super();
-    this.id = id;
-    this.pw = pw;
-    this.bjid = bjid;
-    this.cookieJar = new tough.CookieJar();
-    this.ws = null;
-  }
+function parsePacket(buffer) {
+  if (buffer.length < 14) return null;
 
-  async login() {
-    const res = await axios.post(
-      "https://login.sooplive.co.kr/app/LoginAction.php",
-      new URLSearchParams({
-        szUid: this.id,
-        szPassword: this.pw,
-        szWork: "login",
-      }),
-      {
-        jar: this.cookieJar,
-        withCredentials: true,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
+  const header = buffer.slice(0, 14).toString();
+  const body = buffer.slice(14).toString("utf-8").split("\f");
 
-    const cookies = res.headers["set-cookie"];
-    if (!cookies || !cookies.find((c) => c.includes("AuthTicket"))) {
-      throw new Error("❌ 로그인 실패: 쿠키 없음");
-    }
-
-    console.log("✅ 로그인 성공");
-  }
-
-  async fetchBJInfo() {
-    const res = await axios.post(
-      `https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid=${this.bjid}`,
-      new URLSearchParams({
-        bid: this.bjid,
-        type: "live",
-        player_type: "html5",
-      }),
-      {
-        jar: this.cookieJar,
-        withCredentials: true,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: await this.cookieJar.getCookieString("https://live.sooplive.co.kr"),
-        },
-      }
-    );
-
-    const data = res.data;
-    if (data.CHANNEL.RESULT !== 1) {
-      throw new Error("방송중이 아닙니다");
-    }
-
-    this.chatInfo = {
-      chatUrl: CHAT_URL(data.CHANNEL.CHDOMAIN, data.CHANNEL.CHPT, this.bjid),
-      tk: data.CHANNEL.TK,
-      chatno: data.CHANNEL.CHATNO,
-      ftk: data.CHANNEL.FTK,
-    };
-  }
-
-  async connect() {
-    await this.login();
-    await this.fetchBJInfo();
-
-    this.ws = new WebSocket(this.chatInfo.chatUrl);
-
-    this.ws.on("open", () => {
-      console.log("✅ WebSocket 연결됨");
-      this.ws.send(
-        createPacket(SERVICE_CODE.SVC_LOGIN, [
-          this.chatInfo.tk || "",
-          "",
-          "1048576", // GUEST 권한
-        ])
-      );
-    });
-
-    this.ws.on("message", (data) => {
-      if (!Buffer.isBuffer(data)) return;
-      const header = data.slice(0, 14);
-      const body = data.slice(14);
-
-      const svc = parseInt(header.slice(2, 6).toString());
-
-      if (svc === SERVICE_CODE.SVC_LOGIN) {
-        this.ws.send(
-          createPacket(SERVICE_CODE.SVC_JOINCH, [
-            this.chatInfo.chatno,
-            this.chatInfo.ftk,
-            "0",
-            "",
-            "",
-          ])
-        );
-        return;
-      }
-
-      if (svc === SERVICE_CODE.SVC_CHATMESG) {
-        const parts = body.toString("utf-8").split("\f").filter(Boolean);
-        const chat = {
-          nickname: parts[2],
-          message: parts[11],
-        };
-        this.emit("chat", chat);
-      }
-    });
-
-    this.ws.on("close", () => {
-      console.log("🔌 WebSocket 연결 종료됨");
-    });
-
-    setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(createPacket(SERVICE_CODE.SVC_KEEPALIVE, []));
-      }
-    }, 20000);
-  }
-
-  async start() {
-    try {
-      await this.connect();
-    } catch (e) {
-      console.error("❌ 에러:", e.message);
-    }
-  }
+  const svc = parseInt(header.slice(2, 6), 10);
+  return { svc, body };
 }
 
-module.exports = SoopChatClient;
+module.exports = {
+  fetchBJInfo,
+  connectToChat
+};
