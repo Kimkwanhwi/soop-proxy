@@ -33,4 +33,3 @@ app.listen(PORT, () => {
   console.log(`🔓 SOOP 로그인 서버 실행 중: http://localhost:${PORT}`);
 });
 
-});
