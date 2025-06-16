@@ -5,7 +5,7 @@ const loginSoop = require("./loginSoop");
 const { buildPacket, parsePacket } = require("./soopPacket");
 
 const app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json()); 
 
 let ws = null;
 let chatBuffer = [];
