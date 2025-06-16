@@ -30,6 +30,8 @@ async function loginSoop(id, pw) {
     },
   });
 
+  console.log("🧩 초기 세션 쿠키:", await jar.getCookies("https://login.sooplive.co.kr"));
+  
   // STEP 2. 로그인 시도
   const res = await client.post(
     "https://login.sooplive.co.kr/app/LoginAction.php",
@@ -47,18 +49,20 @@ async function loginSoop(id, pw) {
     }
   );
 
-  // STEP 3. 쿠키 확인
-  const cookieHeader = res.headers["set-cookie"] || [];
-  const joinedCookie = cookieHeader.map(c => c.split(";")[0]).join("; ");
+ // 로그인 후 쿠키 로그 출력
+  const cookies = await jar.getCookies("https://login.sooplive.co.kr");
+  console.log("🍪 로그인 후 쿠키:", cookies);
 
-  const hasAuth = cookieHeader.some(c => c.includes("AuthTicket"));
+  // AuthTicket 검사
+  const auth = cookies.find((c) => c.key === "AuthTicket");
 
-  if (!hasAuth) {
-    throw new Error("❌ 로그인 실패 (AuthTicket 없음)");
+  if (!auth) {
+    console.log("❌ AuthTicket 없음, 로그인 실패");
+    return { success: false, error: "❌ 로그인 실패 (AuthTicket 없음)" };
   }
 
-  console.log("✅ SOOP 로그인 성공");
-  return { client, cookies: joinedCookie };
+  console.log("✅ 로그인 성공");
+  return { success: true, cookie: cookies };
 }
 
 module.exports = loginSoop;
