@@ -1,36 +1,43 @@
-// index.js
-const express = require("express");
-const bodyParser = require("body-parser");
-const loginSoop = require("./loginSoop");
+import express from 'express';
+import axios from 'axios';
+import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(bodyParser.json());
-
-let currentSession = null; // 현재 로그인 세션 (client, jar, cookieHeader 포함)
-
-app.post("/login", async (req, res) => {
-  const { id, pw } = req.body;
-
-  if (!id || !pw) {
-    return res.status(400).json({ success: false, error: "ID와 PW를 입력하세요" });
-  }
+app.post('/api/soop-proxy', async (req, res) => {
+  const { bid, bno } = req.body;
 
   try {
-    const session = await loginSoop(id, pw);
-    currentSession = session;
+    const url = `https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid=${bid}`;
+    const form = new URLSearchParams({
+      bid,
+      bno,
+      type: 'live',
+      confirm_adult: 'false',
+      player_type: 'html5',
+      mode: 'landing',
+      from_api: '0',
+      pwd: '',
+      stream_type: 'common',
+      quality: 'HD'
+    });
 
-    return res.json({ success: true, message: "✅ 로그인 성공" });
+    const response = await axios.post(url, form, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      timeout: 5000
+    });
+
+    res.json(response.data);
   } catch (error) {
-    return res.status(401).json({ success: false, error: error.message });
+    console.error('❌ SOOP API 요청 실패:', error.message);
+    res.status(500).json({ error: 'SOOP API 요청 실패' });
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("SOOP 로그인 서버가 실행 중입니다.");
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 서버 실행 중: http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ SOOP Proxy listening on ${PORT}`));
