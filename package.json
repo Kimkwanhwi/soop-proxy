@@ -1,16 +1,18 @@
 {
-  "name": "soop-login-only",
+  "name": "soop-proxy",
   "version": "1.0.0",
+  "description": "A proxy server for SOOP (AfreecaTV) player_live_api",
+  "type": "module",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
+  "keywords": ["soop", "afreecatv", "proxy", "live", "chat"],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
-    "axios": "0.27.2",
-    "axios-cookiejar-support": "^1.0.1",
-    "tough-cookie": "^4.1.2",
-    "express": "^4.18.2",
-    "body-parser": "^1.20.2"
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
   }
 }
